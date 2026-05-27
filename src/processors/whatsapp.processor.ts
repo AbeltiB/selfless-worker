@@ -1,20 +1,20 @@
 import { Worker, Job } from 'bullmq';
-import { QUEUE_NAMES, NotificationWhatsAppJob } from 'selfless-sdk';
+import { QUEUE_NAMES, NotificationSmsJob } from 'selfless-sdk';
 import { createRedisConnection } from '../redis';
 import { logger } from '../logger';
 
+// WhatsApp re-uses the SMS queue/job type for now; Twilio handles both channels
 export function startWhatsAppWorker(): Worker {
   const connection = createRedisConnection();
 
-  const worker = new Worker<NotificationWhatsAppJob>(
-    QUEUE_NAMES.NOTIFICATION_WHATSAPP,
-    async (job: Job<NotificationWhatsAppJob>) => {
+  const worker = new Worker<NotificationSmsJob>(
+    QUEUE_NAMES.NOTIFICATION_SMS,
+    async (job: Job<NotificationSmsJob>) => {
       const { to, body } = job.data;
 
-      // If Twilio credentials are present, attempt to send via Twilio WhatsApp Sandbox
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const fromNumber = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886'; // Twilio sandbox default
+      const fromNumber = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
 
       if (accountSid && authToken) {
         logger.info({ jobId: job.id, to }, 'Sending WhatsApp via Twilio');
@@ -41,7 +41,7 @@ export function startWhatsAppWorker(): Worker {
           }
 
           const result = (await response.json()) as { sid: string };
-          logger.info({ jobId: job.id, messageSid: result.sid }, 'WhatsApp message sent via Twilio');
+          logger.info({ jobId: job.id, messageSid: result.sid }, 'WhatsApp sent via Twilio');
           return { sent: true, messageSid: result.sid };
         } catch (err) {
           logger.error({ jobId: job.id, err }, 'Failed to send WhatsApp via Twilio');
@@ -49,12 +49,8 @@ export function startWhatsAppWorker(): Worker {
         }
       }
 
-      // Phase 1 fallback: log only (Twilio/Meta integration deferred to Phase 2)
-      logger.info(
-        { jobId: job.id, to, body: body.substring(0, 50) },
-        '[WHATSAPP STUB] Would send WhatsApp message',
-      );
-      return { stub: true, to, body };
+      logger.info({ jobId: job.id, to }, '[WHATSAPP STUB] No Twilio credentials, skipping');
+      return { stub: true, to };
     },
     { connection, concurrency: 3 },
   );

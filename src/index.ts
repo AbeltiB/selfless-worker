@@ -5,6 +5,8 @@ import { startPushWorker } from './processors/push.processor';
 import { startWhatsAppWorker } from './processors/whatsapp.processor';
 import { startTicketExpiryWorker } from './processors/ticket-expiry.processor';
 import { startAnalyticsWorker } from './processors/analytics.processor';
+import { startTelegramWorker } from './processors/telegram.processor';
+import { startTicketSlaWorker } from './processors/ticket-sla.processor';
 import { logger } from './logger';
 
 logger.info('SelfLess Worker starting...');
@@ -16,6 +18,8 @@ const workers = [
   startWhatsAppWorker(),
   startTicketExpiryWorker(),
   startAnalyticsWorker(),
+  startTelegramWorker(),
+  startTicketSlaWorker(),
 ];
 
 logger.info(`${workers.length} workers started`);
