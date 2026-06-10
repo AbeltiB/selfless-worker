@@ -1,11 +1,12 @@
 services:
-  - type: worker
+  - type: web
     name: selfless-worker
     runtime: node
     region: oregon
     plan: free
     buildCommand: npm ci && npm run build
     startCommand: node dist/index.js
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
