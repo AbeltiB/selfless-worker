@@ -14,6 +14,7 @@ export const config = {
   },
   api: {
     baseUrl: process.env.API_BASE_URL || 'http://localhost:4000',
+    serviceToken: process.env.WORKER_SERVICE_TOKEN || '',
   },
   nodeEnv: process.env.NODE_ENV || 'development',
 };

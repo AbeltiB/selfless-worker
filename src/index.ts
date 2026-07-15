@@ -9,6 +9,11 @@ import { startTelegramWorker } from './processors/telegram.processor';
 import { startTicketSlaWorker } from './processors/ticket-sla.processor';
 import { startHealthServer } from './health';
 import { logger } from './logger';
+import { config } from './config';
+
+if (!config.api.serviceToken) {
+  logger.error('WORKER_SERVICE_TOKEN is not set — calls to the API from ticket-expiry/ticket-sla workers will be rejected with 401');
+}
 
 logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 logger.info('  SelfLess Worker  |  starting up');

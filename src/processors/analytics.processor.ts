@@ -9,13 +9,18 @@ export function startAnalyticsWorker(): Worker {
   const worker = new Worker<AnalyticsAggregateJob>(
     QUEUE_NAMES.ANALYTICS_AGGREGATE,
     async (job: Job<AnalyticsAggregateJob>) => {
-      const { branchId, serviceId, date, hour } = job.data;
+      const { organizationId, branchId, serviceId } = job.data;
+      // Repeatable cron jobs carry the same static `data` on every run, so date/hour must be
+      // computed from wall-clock time here rather than trusted from job.data.
+      const now = new Date();
+      const date = now.toISOString().slice(0, 10);
+      const hour = now.getUTCHours();
       // Phase 1: log only (full analytics aggregation deferred to Phase 2)
       logger.info(
-        { jobId: job.id, branchId, serviceId, date, hour },
+        { jobId: job.id, organizationId, branchId, serviceId, date, hour },
         '[ANALYTICS STUB] Would aggregate analytics snapshot',
       );
-      return { stub: true, branchId, serviceId, date, hour };
+      return { stub: true, organizationId, branchId, serviceId, date, hour };
     },
     { connection, concurrency: 2 },
   );

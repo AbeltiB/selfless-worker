@@ -14,11 +14,11 @@ export function startTicketSlaWorker(): Worker {
       logger.info({ jobId: job.id, ticketId, stepId, slaMinutes }, 'Checking ticket SLA');
 
       // Fetch current ticket state from API
-      const url = `${config.api.baseUrl}/api/v1/tickets/${ticketId}`;
+      const url = `${config.api.baseUrl}/api/v1/tickets/${ticketId}/internal`;
       let response: Response;
       try {
         response = await fetch(url, {
-          headers: { Authorization: `Bearer ${process.env.WORKER_API_TOKEN || ''}` },
+          headers: { 'x-service-token': config.api.serviceToken },
         });
       } catch (err) {
         logger.error({ jobId: job.id, ticketId, err }, 'Failed to fetch ticket for SLA check');
@@ -30,7 +30,7 @@ export function startTicketSlaWorker(): Worker {
         return { skipped: true };
       }
 
-      const { data: ticket } = await response.json() as { data: any };
+      const ticket = await response.json() as { status: string; currentStepId: string | null };
 
       // Only flag SLA breach if ticket is still on this step and waiting/in-service
       const activeStatuses = ['WAITING', 'IN_SERVICE', 'CALLED', 'ON_HOLD'];
@@ -43,7 +43,7 @@ export function startTicketSlaWorker(): Worker {
       const breachUrl = `${config.api.baseUrl}/api/v1/tickets/${ticketId}/sla-breach`;
       await fetch(breachUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.WORKER_API_TOKEN || ''}` },
+        headers: { 'Content-Type': 'application/json', 'x-service-token': config.api.serviceToken },
         body: JSON.stringify({ stepId, slaMinutes }),
       });
 

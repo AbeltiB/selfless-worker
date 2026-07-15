@@ -13,14 +13,13 @@ export function startTicketExpiryWorker(): Worker {
       const { ticketId } = job.data;
       logger.info({ jobId: job.id, ticketId }, 'Processing ticket expiry');
 
-      const url = `${config.api.baseUrl}/api/v1/tickets/${ticketId}/status`;
+      const url = `${config.api.baseUrl}/api/v1/tickets/${ticketId}/expire`;
 
       let response: Response;
       try {
         response = await fetch(url, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'EXPIRED' }),
+          headers: { 'Content-Type': 'application/json', 'x-service-token': config.api.serviceToken },
         });
       } catch (err) {
         logger.error({ jobId: job.id, ticketId, err }, 'Failed to reach API for ticket expiry');
@@ -32,16 +31,17 @@ export function startTicketExpiryWorker(): Worker {
         return { skipped: true, reason: 'not found' };
       }
 
-      if (response.status === 409) {
-        // Conflict: ticket already in a terminal state
-        const body = await response.json() as { message?: string };
-        logger.info({ jobId: job.id, ticketId, message: body.message }, 'Ticket already in terminal state, skipping');
-        return { skipped: true, reason: body.message || 'already terminal' };
-      }
-
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`API error ${response.status}: ${errorText}`);
+      }
+
+      // 200 covers both "expired" and "skipped: already moved on" — the API's /expire route is
+      // idempotent, both are a successful job completion, not a retry-worthy failure.
+      const body = await response.json() as { skipped?: boolean; reason?: string; expired?: boolean };
+      if (body.skipped) {
+        logger.info({ jobId: job.id, ticketId, reason: body.reason }, 'Ticket already moved on, skipping expiry');
+        return { skipped: true, reason: body.reason };
       }
 
       logger.info({ jobId: job.id, ticketId }, 'Ticket expired successfully');
